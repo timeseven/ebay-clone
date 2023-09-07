@@ -2,25 +2,31 @@
 
 import { BiLoader } from "react-icons/bi";
 import ProductComp from "./ProductComp";
+import { useEffect, useState } from "react";
 
 export default function SimilarProducts() {
-  const products = [
-    {
-      id: 1,
-      title: "Brown Leather Bag",
-      description: "Lorem ipsum dolor sit amet consectetur adipisicing elit. Natus, quae.",
-      url: "https://picsum.photos/id/7",
-      price: 2500,
-    },
-    {
-      id: 2,
-      title: "Schol Books",
-      description:
-        "Lorem ipsum, dolor sit amet consectetur adipisicing elit. Tenetur veniam accusamus maxime autem assumenda aut delectus, id quos modi! Nesciunt.",
-      url: "https://picsum.photos/id/20",
-      price: 1500,
-    },
-  ];
+  const [products, setProducts] = useState([]);
+
+  const getRandomProducts = async () => {
+    try {
+      const response = await fetch("/api/products/get-random");
+      const result = await response.json();
+
+      if (result) {
+        setProducts(result);
+        return;
+      }
+
+      setProducts([]);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  useEffect(() => {
+    getRandomProducts();
+  }, []);
+
   return (
     <>
       <div>
@@ -37,7 +43,7 @@ export default function SimilarProducts() {
               ))}
             </div>
           ) : (
-            <div class="flex items-center justify-center">
+            <div className="flex items-center justify-center">
               <div className="flex items-center justify-center gap-4 font-semibold">
                 <BiLoader size={30} className="text-blue-400 animate-spin" />
                 Loading Products...

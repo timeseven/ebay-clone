@@ -77,7 +77,7 @@ export default function Checkout() {
 
               <div className="flex items-center justify-center p-4 gap-2 border-t">
                 <img width={50} src="/images/logo.svg" />
-                <div class="font-light my-2">MONEY BACK GUARANTEE</div>
+                <div className="font-light my-2">MONEY BACK GUARANTEE</div>
               </div>
             </div>
           </div>

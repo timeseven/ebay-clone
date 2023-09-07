@@ -2,19 +2,31 @@
 
 import SimilarProducts from "@/app/components/SimilarProducts";
 import { useCart } from "@/app/context/cart";
+import useIsLoading from "@/app/hooks/useIsLoading";
 import MainLayout from "@/app/layouts/MainLayout";
+import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 
 export default function Product({ params }) {
   const cart = useCart();
 
-  const product = {
-    id: 1,
-    title: "Brown Leather Bag",
-    description: "Lorem ipsum dolor sit amet consectetur adipisicing elit. Natus, quae.",
-    url: "https://picsum.photos/id/7",
-    price: 2500,
+  const [product, setProduct] = useState({});
+
+  const getProduct = async () => {
+    useIsLoading(true);
+    setProduct({});
+
+    const response = await fetch(`/api/product/${params.id}`);
+    const prod = await response.json();
+    setProduct(prod);
+    cart.isItemAddedToCart(prod);
+    useIsLoading(false);
   };
+
+  useEffect(() => {
+    getProduct();
+  }, []);
+
   return (
     <>
       <MainLayout>
@@ -46,11 +58,11 @@ export default function Product({ params }) {
                   <button
                     onClick={() => {
                       if (cart.isItemAdded) {
-                        cart.removeFromCart(product);
                         toast.info("Remove from cart", { autoClose: 3000 });
+                        cart.removeFromCart(product);
                       } else {
-                        cart.addToCart(product);
                         toast.success("Added to cart", { autoClose: 3000 });
+                        cart.addToCart(product);
                       }
                     }}
                     className={`text-white py-2 px-20 bg-[#3498C9] rounded-full cursor-pointer

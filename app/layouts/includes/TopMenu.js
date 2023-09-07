@@ -6,8 +6,11 @@ import { AiOutlineShoppingCart } from "react-icons/ai";
 import { useUser } from "@/app/context/user";
 import { useState } from "react";
 import { useCart } from "@/app/context/cart";
+import ClientOnly from "@/app/components/ClientOnly";
+import { useRouter } from "next/navigation";
 
 export default function TopMenu() {
+  const router = useRouter();
   const user = useUser();
   const cart = useCart();
 
@@ -78,16 +81,23 @@ export default function TopMenu() {
               Ship to
             </li>
             <li className="px-3 hover:underline cursor-pointer">
-              <div className="relative">
-                <AiOutlineShoppingCart size={25} />
-                {cart.cartCount() > 0 ? (
-                  <div className="absolute text-[10px] -top-[2px] -right-[5px] bg-red-500 w-[14px] h-[14px] rounded-full text-white">
-                    <div className="flex items-center justify-center -mt-[1px]">{cart.cartCount()}</div>
-                  </div>
-                ) : (
-                  <div></div>
-                )}
-              </div>
+              <ClientOnly>
+                <div
+                  onClick={() => {
+                    router.push("/cart");
+                  }}
+                  className="relative"
+                >
+                  <AiOutlineShoppingCart size={25} />
+                  {cart.cartCount() > 0 ? (
+                    <div className="absolute text-[10px] -top-[2px] -right-[5px] bg-red-500 w-[14px] h-[14px] rounded-full text-white">
+                      <div className="flex items-center justify-center -mt-[1px]">{cart.cartCount()}</div>
+                    </div>
+                  ) : (
+                    <div></div>
+                  )}
+                </div>
+              </ClientOnly>
             </li>
           </ul>
         </div>
