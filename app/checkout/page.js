@@ -36,7 +36,6 @@ export default function Checkout() {
     useIsLoading(true);
 
     const getAddress = async () => {
-      console.log("getAddress", user?.id);
       if (user?.id == null || user?.id == undefined) {
         useIsLoading(false);
         return;
@@ -86,7 +85,7 @@ export default function Checkout() {
 
     card.current.mount("#CardElement");
     card.current.on("change", function (event) {
-      document.querySelector("button").disabled = event.empty;
+      document.querySelector("#Pay").disabled = event.empty;
       document.querySelector("#CardError").textContent = event.error ? event.error.message : "";
     });
 
@@ -212,15 +211,15 @@ export default function Checkout() {
                   </div>
 
                   <form onSubmit={pay}>
-                    <div id="CardElement" className="border border-gray-500 p-2 rounded-sm">
-                      <p
-                        id="CardError"
-                        role="alert"
-                        className="text-red-700 text-center font-semibold relative top-2"
-                      ></p>
-                    </div>
+                    <div id="CardElement" className="border border-gray-500 p-2 rounded-sm"></div>
+                    <p
+                      id="CardError"
+                      role="alert"
+                      className="text-red-700 text-center font-semibold relative top-2"
+                    ></p>
 
                     <button
+                      id="Pay"
                       className="mt-4 bg-blue-600 text-lg w-full text-white font-semibold p-3 rounded-full"
                       type="submit"
                     >
