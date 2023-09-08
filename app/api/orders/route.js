@@ -17,7 +17,7 @@ export async function GET() {
       where: { user_id: user?.id },
       orderBy: { id: "desc" },
       include: {
-        orderItems: {
+        orderItem: {
           include: {
             product: true,
           },

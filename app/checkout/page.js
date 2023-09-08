@@ -1,16 +1,151 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import CheckoutItem from "../components/CheckoutItem";
+import { useCart } from "../context/cart";
+import { useUser } from "../context/user";
 import MainLayout from "../layouts/MainLayout";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "react-toastify";
+import useIsLoading from "../hooks/useIsLoading";
+import { loadStripe } from "@stripe/stripe-js";
+import Link from "next/link";
+import ClientOnly from "../components/ClientOnly";
+import useUserAddress from "../hooks/useUserAddress";
+import { AiOutlineLoading3Quarters } from "react-icons/ai";
 
 export default function Checkout() {
-  const product = {
-    id: 1,
-    title: "Brown Leather Bag",
-    description:
-      "Lorem ipsum, dolor sit amet consectetur adipisicing elit. Ducimus odit porro amet omnis! Voluptas dolore dolor amet doloribus deleniti ipsum repudiandae. Quod praesentium ipsam veritatis qui vero quisquam, omnis illum nesciunt distinctio beatae odio dicta cumque similique voluptate est fugit, aliquid unde iure corrupti nam? Nihil aspernatur, ut dignissimos explicabo porro soluta magnam assumenda ad a temporibus possimus suscipit cum, natus dolores ducimus dolore voluptas quasi nemo sequi repellendus molestiae. Ullam vero iusto repudiandae repellat non accusantium veniam aliquid eligendi enim cum ducimus, quos iste quam necessitatibus ipsa architecto nostrum, minima consequatur itaque amet consectetur. Corrupti iure enim, quisquam culpa asperiores consequuntur accusamus perspiciatis nisi doloribus, pariatur libero dolores harum, temporibus dignissimos necessitatibus modi laudantium optio beatae veritatis omnis eligendi incidunt? Qui placeat ab voluptatibus aspernatur deserunt soluta accusamus cum, doloremque sit autem vero, quas facilis, impedit officia? Ratione eos, est corrupti delectus illum voluptas maiores vitae obcaecati commodi eveniet praesentium laboriosam officia natus. Alias similique consectetur pariatur vel, possimus aperiam rerum reprehenderit error quidem quae perferendis esse ab. Asperiores odio commodi et totam animi, consequatur enim eum consectetur nisi est magnam aliquam veniam incidunt ullam cupiditate vel maiores, nihil velit. Amet dolorum provident accusamus dolores repellat! Atque, veritatis rerum. Excepturi molestiae voluptatem fuga consequuntur maxime vel distinctio! Amet, placeat ut corrupti sequi ratione explicabo! Quam nulla sed officiis optio ut laudantium odio suscipit voluptate blanditiis qui. Provident temporibus, veritatis deserunt deleniti vitae incidunt blanditiis doloremque perspiciatis consequatur alias fugiat ad reiciendis repellat et, aliquam facilis corrupti nostrum optio! Ea odio modi officia consectetur minima cupiditate voluptatum assumenda praesentium minus possimus. Nihil ea vitae dolorum, eius nulla officia, dolores nesciunt sit ipsum culpa dolore tenetur sunt reprehenderit necessitatibus expedita dicta odio voluptate, repellat sint quaerat ipsa sequi sed aperiam id. Voluptatum deserunt tempore, labore assumenda delectus mollitia asperiores in itaque.",
-    url: "https://picsum.photos/id/7",
-    price: 2500,
+  const user = useUser();
+  const cart = useCart();
+  const router = useRouter();
+
+  let stripe = useRef(null);
+  let elements = useRef(null);
+  let card = useRef(null);
+  let clientSecret = useRef(null);
+
+  const [addressDetails, setAddressDetails] = useState({});
+  const [isLoadingAddress, setIsLoadingAddress] = useState(false);
+
+  useEffect(() => {
+    if (cart?.cartTotal() <= 0) {
+      toast.error("Your cart is empty", { autoClose: 3000 });
+      return router.push("/");
+    }
+
+    useIsLoading(true);
+
+    const getAddress = async () => {
+      console.log("getAddress", user?.id);
+      if (user?.id == null || user?.id == undefined) {
+        useIsLoading(false);
+        return;
+      }
+
+      setIsLoadingAddress(true);
+      const response = await useUserAddress();
+      if (response) {
+        setAddressDetails(response);
+        setIsLoadingAddress(false);
+        return;
+      }
+
+      useIsLoading(false);
+    };
+
+    getAddress();
+    setTimeout(() => stripeInit(), 300);
+  }, [user]);
+
+  const stripeInit = async () => {
+    if (user?.id == null || user?.id == undefined) return;
+
+    stripe.current = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PK_KEY || "");
+
+    const response = await fetch("/api/stripe", {
+      method: "POST",
+      body: JSON.stringify({ amount: cart.cartTotal() }),
+    });
+
+    const result = await response.json();
+
+    clientSecret.current = result.client_secret;
+    elements.current = stripe.current.elements();
+    var style = {
+      base: {
+        fontSize: "18px",
+      },
+      invalid: {
+        fontFamily: "Arial, sans-serif",
+        color: "#ee4b2b",
+        iconColor: "ee4b2b",
+      },
+    };
+
+    card.current = elements.current.create("card", { hidePostalCode: true, style: style });
+
+    card.current.mount("#CardElement");
+    card.current.on("change", function (event) {
+      document.querySelector("button").disabled = event.empty;
+      document.querySelector("#CardError").textContent = event.error ? event.error.message : "";
+    });
+
+    useIsLoading(false);
+  };
+
+  const pay = async (event) => {
+    event.preventDefault();
+
+    if (Object.entries(addressDetails).length == 0) {
+      showError("Please add shipping address!");
+      return;
+    }
+
+    let result = await stripe.current.confirmCardPayment(clientSecret.current, {
+      payment_method: { card: card.current },
+    });
+
+    if (result.error) {
+      showError(result.error.message);
+    } else {
+      useIsLoading(true);
+
+      try {
+        let response = await fetch("/api/orders/create", {
+          method: "POST",
+          body: JSON.stringify({
+            stripe_id: result.paymentIntent.id,
+            name: addressDetails.name,
+            address: addressDetails.address,
+            postcode: addressDetails.postcode,
+            city: addressDetails.city,
+            country: addressDetails.country,
+            products: cart.getCart(),
+            total: cart.cartTotal(),
+          }),
+        });
+
+        if (response.status == 200) {
+          toast.success("Order Complete", { autoClose: 3000 });
+          cart.clearCart();
+          return router.push("/success");
+        }
+      } catch (error) {
+        console.log(error);
+        toast.error("Something went wrong", { autoClose: 3000 });
+      }
+
+      useIsLoading(false);
+    }
+  };
+
+  const showError = (errorMsgText) => {
+    let errorMsg = document.querySelector("#CardError");
+    toast.error(errorMsgText, { autoClose: 3000 });
+    errorMsg.textContent = errorMsgText;
+    setTimeout(() => {
+      errorMsg.textContent = "";
+    }, 3000);
   };
   return (
     <>
@@ -23,58 +158,77 @@ export default function Checkout() {
                 <div className="text-xl font-semibold mb-2">Shipping Address</div>
 
                 <div>
-                  <ul className="text-sm mt-2">
-                    <li>Name: test</li>
-                    <li>Address: test</li>
-                    <li>Postcode: test</li>
-                    <li>City: test</li>
-                    <li>Country: test</li>
-                  </ul>
+                  {!isLoadingAddress ? (
+                    <Link href="/address" className="text-blue-500 text-sm underline">
+                      {addressDetails.name ? "Update Address" : "Add Address"}
+                    </Link>
+                  ) : null}
+                  {!isLoadingAddress && addressDetails.name ? (
+                    <ul className="text-sm mt-2">
+                      <li>Name: {addressDetails.name}</li>
+                      <li>Address: {addressDetails.address}</li>
+                      <li>Postcode: {addressDetails.postcode}</li>
+                      <li>City: {addressDetails.city}</li>
+                      <li>Country: {addressDetails.country}</li>
+                    </ul>
+                  ) : null}
+                  {isLoadingAddress ? (
+                    <div className="flex items-center mt-1 gap-2">
+                      <AiOutlineLoading3Quarters className="animate-spin" />
+                      Getting Address...
+                    </div>
+                  ) : (
+                    <div></div>
+                  )}
                 </div>
               </div>
-
-              <div id="Items" className="bg-white rounded-lg mt-4">
-                <CheckoutItem key={product.id} product={product} />
-              </div>
+              <ClientOnly>
+                <div id="Items" className="bg-white rounded-lg mt-4">
+                  {cart.getCart().map((product) => (
+                    <CheckoutItem key={product.id} product={product} />
+                  ))}
+                </div>
+              </ClientOnly>
             </div>
 
             <div id="PlaceOrder" className="relative -top-[6px] w-[35%] border rounded-lg">
-              <div className="p-4">
-                <div className="flex items-baseline justify-between text-sm mb-1">
-                  <div>Items (3)</div>
-                  <div>$25.00</div>
-                </div>
-
-                <div className="flex items-center justify-between mb-2 text-sm">
-                  <div>Shipping:</div>
-                  <div>Free</div>
-                </div>
-
-                <div className="border-t"></div>
-
-                <div className="flex items-center justify-between my-4">
-                  <div className="font-semibold">Order total</div>
-                  <div className="text-2xl font-semibold">$25.00</div>
-                </div>
-
-                <form>
-                  <div id="CardElement" className="border border-gray-500 p-2 rounded-sm">
-                    <p
-                      id="CardError"
-                      role="alert"
-                      className="text-red-700 text-center font-semibold relative top-2"
-                    ></p>
+              <ClientOnly>
+                <div className="p-4">
+                  <div className="flex items-baseline justify-between text-sm mb-1">
+                    <div>Items ({cart.cartCount()})</div>
+                    <div>${(cart.cartTotal() / 100).toFixed(2)}</div>
                   </div>
 
-                  <button
-                    className="mt-4 bg-blue-600 text-lg w-full text-white font-semibold p-3 rounded-full"
-                    type="submit"
-                  >
-                    Confirm and Pay
-                  </button>
-                </form>
-              </div>
+                  <div className="flex items-center justify-between mb-2 text-sm">
+                    <div>Shipping:</div>
+                    <div>Free</div>
+                  </div>
 
+                  <div className="border-t"></div>
+
+                  <div className="flex items-center justify-between my-4">
+                    <div className="font-semibold">Order total</div>
+                    <div className="text-2xl font-semibold">${(cart.cartTotal() / 100).toFixed(2)}</div>
+                  </div>
+
+                  <form onSubmit={pay}>
+                    <div id="CardElement" className="border border-gray-500 p-2 rounded-sm">
+                      <p
+                        id="CardError"
+                        role="alert"
+                        className="text-red-700 text-center font-semibold relative top-2"
+                      ></p>
+                    </div>
+
+                    <button
+                      className="mt-4 bg-blue-600 text-lg w-full text-white font-semibold p-3 rounded-full"
+                      type="submit"
+                    >
+                      Confirm and Pay
+                    </button>
+                  </form>
+                </div>
+              </ClientOnly>
               <div className="flex items-center justify-center p-4 gap-2 border-t">
                 <img width={50} src="/images/logo.svg" />
                 <div className="font-light my-2">MONEY BACK GUARANTEE</div>

@@ -29,7 +29,6 @@ export default function Orders() {
   useEffect(() => {
     useIsLoading(true);
     getOrders();
-    console.log("orders", orders);
   }, [user]);
 
   return (

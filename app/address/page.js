@@ -41,7 +41,6 @@ export default function Address() {
     }
 
     const response = await useUserAddress();
-    console.log("response", response);
     if (response) {
       setTheCurrentAddress(response);
       useIsLoading(false);
