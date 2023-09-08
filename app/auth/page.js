@@ -5,11 +5,13 @@ import { ThemeSupa, supabase } from "@supabase/auth-ui-shared";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import ClientOnly from "../components/ClientOnly";
 
 export default function AuthPage() {
   const supabase = createClientComponentClient();
   const [jumpTo, setJumpTo] = useState("");
   useEffect(() => {
+    console.log(window.location.origin);
     setJumpTo(window.location.origin);
   }, []);
   return (
@@ -22,15 +24,17 @@ export default function AuthPage() {
         </div>
 
         <div className="w-full flex items-center justify-center p-5 border-b-gray-300">Login / Register</div>
-        <div className="max-w-[400px] mx-auto px-2">
-          <Auth
-            onlyThirdPartyProviders
-            redirectTo={`${jumpTo}/auth/callback`}
-            supabaseClient={supabase}
-            providers={["google"]}
-            appearance={{ theme: ThemeSupa }}
-          />
-        </div>
+        <ClientOnly>
+          <div className="max-w-[400px] mx-auto px-2">
+            <Auth
+              onlyThirdPartyProviders
+              redirectTo={`${jumpTo}/auth/callback`}
+              supabaseClient={supabase}
+              providers={["google"]}
+              appearance={{ theme: ThemeSupa }}
+            />
+          </div>
+        </ClientOnly>
       </div>
     </>
   );
