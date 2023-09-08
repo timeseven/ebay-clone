@@ -4,9 +4,14 @@ import { Auth } from "@supabase/auth-ui-react";
 import { ThemeSupa, supabase } from "@supabase/auth-ui-shared";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 export default function AuthPage() {
   const supabase = createClientComponentClient();
+  const [jumpTo, setJumpTo] = useState("");
+  useEffect(() => {
+    setJumpTo(window.location.origin);
+  }, []);
   return (
     <>
       <div id="AuthPage" className="w-full min-h-screen bg-white">
@@ -20,7 +25,7 @@ export default function AuthPage() {
         <div className="max-w-[400px] mx-auto px-2">
           <Auth
             onlyThirdPartyProviders
-            redirectTo={`${window.location.origin}/auth/callback`}
+            redirectTo={`${jumpTo}/auth/callback`}
             supabaseClient={supabase}
             providers={["google"]}
             appearance={{ theme: ThemeSupa }}
